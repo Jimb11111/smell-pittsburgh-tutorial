@@ -1,5 +1,6 @@
 import logging
 import itertools
+import numpy as np
 from sklearn.dummy import DummyClassifier
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.ensemble import RandomForestClassifier
@@ -26,14 +27,16 @@ results_list = []
 
 # Hyperparameter & Model ranges
 hyperparams = {
-    'smell_thr_values': [30, 40, 50],
-    'smell_predict_hrs_values': [4, 6, 8],
+    'smell_thr_values': [10, 20, 30],
+    'smell_predict_hrs_values': [2, 4, 6],
     'look_back_hrs_values': [1, 2, 3],
     'add_inter_values': [False],
-    'test_size_values': [2680, 3000],
-    'train_size_values': [6360, 7000]
+    'test_size_values': [3000],
+    'train_size_values': [7000]
 }
 models = [DummyClassifier(), DecisionTreeClassifier(), RandomForestClassifier(n_jobs=-1), MLPClassifier()]
+
+
 
 # Multiple Scoring Metrics
 multiple_scorers = {'precision': make_scorer(precision_score, zero_division=0), 
@@ -57,10 +60,13 @@ for hyperparam_combo in itertools.product(*hyperparams.values()):
         result = cross_validate(model, df_X, df_Y.squeeze(), cv=splits, scoring=multiple_scorers, n_jobs=-1)
         new_f1 = result['test_f1_score'].mean()
 
-        # Logging results
-        logging.info(f"Model: {model}, Metrics: {result}, Params: {params}")
+        # Calculate the mean of each metric
+        mean_metrics = {key: val.mean() for key, val in result.items() if isinstance(val, np.ndarray)}
+        
+        # Logging results with mean metrics
+        logging.info(f"Model: {model}, Metrics: {mean_metrics}, Params: {params}")
 
-        results_list.append({'model': model, 'Metrics': result, 'params': params})
+        results_list.append({'model': model, 'Metrics': mean_metrics, 'params': params})
 
         if new_f1 > best_f1:
             best_f1 = new_f1
@@ -68,7 +74,7 @@ for hyperparam_combo in itertools.product(*hyperparams.values()):
             best_params = params
 
 # Sort and log all results by F1 score
-results_list = sorted(results_list, key=lambda x: x['Metrics']['test_f1_score'].mean(), reverse=True)
+results_list = sorted(results_list, key=lambda x: x['Metrics']['test_f1_score'], reverse=True)
 logging.info(f"Best model: {best_model}, Best Metrics: {best_f1}")
 logging.info(f"Best hyperparameters: {best_params}")
 
